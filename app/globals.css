@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 10, 10, 10;
+  --background-end-rgb: 18, 18, 18;
+  --neon-green: 57, 255, 20;
+  --acid-green: 0, 255, 65;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 10, 10, 20;
+    --background-end-rgb: 15, 23, 42;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      rgba(var(--background-start-rgb), 1),
+      rgba(var(--background-end-rgb), 1)
+    );
+  min-height: 100vh;
+}
+
+@layer components {
+  .neon-border {
+    @apply border border-neon-green shadow-neon-green-sm;
+  }
+  
+  .neon-button {
+    @apply bg-transparent text-neon-green border border-neon-green shadow-neon-green-sm 
+    hover:shadow-neon-green hover:bg-neon-green/10 transition-all duration-300;
+  }
+  
+  .neon-text {
+    @apply text-neon-green;
+  }
+  
+  .neon-card {
+    @apply bg-charcoal border border-neon-green/50 shadow-neon-green-sm;
+  }
+  
+  .matrix-bg {
+    @apply bg-deep-black;
+  }
+  
+  .grid-pattern {
+    background-size: 40px 40px;
+    background-image: 
+      linear-gradient(to right, rgba(57, 255, 20, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(57, 255, 20, 0.05) 1px, transparent 1px);
+  }
+} 
