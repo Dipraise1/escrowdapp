@@ -5,28 +5,17 @@ import { useWallet } from '../hooks/useWallet';
 import { ethers } from 'ethers';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-
-// Factory ABI - Only the functions we need
-const EscrowFactoryABI = [
-  "function createEscrow(address _arbiter, address _beneficiary, string memory _terms, uint256 _timelock) external payable returns (address)",
-  "function getUserEscrows(address _user) external view returns (address[] memory)",
-  "function batchGetEscrowDetails(address[] memory _escrows) external view returns (address[] memory arbiterAddresses, address[] memory beneficiaryAddresses, address[] memory depositorAddresses, uint256[] memory amounts, bool[] memory statuses)"
-];
-
-// Escrow ABI - Only the functions we need
-const EscrowABI = [
-  "function arbiter() external view returns (address)",
-  "function beneficiary() external view returns (address)",
-  "function depositor() external view returns (address)",
-  "function amount() external view returns (uint256)",
-  "function terms() external view returns (string memory)",
-  "function isApproved() external view returns (bool)",
-  "function isCancelled() external view returns (bool)",
-  "function getStatus() external view returns (bool isActive, bool isLockedByTimelock, bool hasMilestonesEnabled, bool hasActiveDispute)"
-];
-
-// Contract addresses - Replace with your deployed contract addresses
-const FACTORY_ADDRESS = "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318"; // This is a placeholder
+import { 
+  EscrowData, 
+  formatAddress, 
+  getUserEscrows as getEscrows, 
+  createEscrow, 
+  approveEscrow, 
+  cancelEscrow, 
+  getEscrowStatus 
+} from '../lib/contractUtils';
+import { classNames } from '../lib/classNames';
+import { CheckCircleIcon, ExclamationCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export default function EthereumEscrow() {
   const { isConnected, connectEthereum, address, provider } = useWallet();
@@ -37,48 +26,26 @@ export default function EthereumEscrow() {
   const [amount, setAmount] = useState('');
   const [terms, setTerms] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [activeEscrows, setActiveEscrows] = useState<any[]>([]);
+  const [activeEscrows, setActiveEscrows] = useState<EscrowData[]>([]);
+  const [loadingEscrow, setLoadingEscrow] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ type: string; message: string } | null>(null);
 
   // Load user's escrows on connection or address change
   useEffect(() => {
-    const loadUserEscrows = async () => {
-      if (!isConnected || !address || !provider) return;
-      
-      try {
-        const ethersProvider = new ethers.BrowserProvider(provider);
-        const signer = await ethersProvider.getSigner();
-        const factory = new ethers.Contract(FACTORY_ADDRESS, EscrowFactoryABI, signer);
-        
-        // Get user's escrows
-        const userEscrows = await factory.getUserEscrows(address);
-        
-        if (userEscrows.length > 0) {
-          // Get details for all escrows
-          const details = await factory.batchGetEscrowDetails(userEscrows);
-          
-          // Format escrow data
-          const escrowsData = userEscrows.map((addr: string, i: number) => ({
-            address: addr,
-            arbiter: details.arbiterAddresses[i],
-            beneficiary: details.beneficiaryAddresses[i],
-            depositor: details.depositorAddresses[i],
-            amount: ethers.formatEther(details.amounts[i]),
-            isApproved: details.statuses[i],
-            isYours: details.depositorAddresses[i].toLowerCase() === address.toLowerCase()
-          }));
-          
-          setActiveEscrows(escrowsData);
-        } else {
-          setActiveEscrows([]);
-        }
-      } catch (error) {
-        console.error('Error loading escrows:', error);
-        toast.error('Failed to load escrows');
-      }
-    };
-    
     loadUserEscrows();
   }, [isConnected, address, provider]);
+
+  const loadUserEscrows = async () => {
+    if (!isConnected || !address || !provider) return;
+    
+    try {
+      const escrows = await getEscrows(provider, address);
+      setActiveEscrows(escrows);
+    } catch (error) {
+      console.error('Error loading escrows:', error);
+      toast.error('Failed to load escrows');
+    }
+  };
 
   const handleConnect = async () => {
     await connectEthereum();
@@ -106,31 +73,14 @@ export default function EthereumEscrow() {
     setIsLoading(true);
 
     try {
-      // Create contract instance
-      const ethersProvider = new ethers.BrowserProvider(provider);
-      const signer = await ethersProvider.getSigner();
-      const factory = new ethers.Contract(FACTORY_ADDRESS, EscrowFactoryABI, signer);
-      
-      // Convert amount to wei
-      const amountInWei = ethers.parseEther(amount);
-      
-      // Create timelock (optional - could be added as another form field in the future)
-      const timelock = 0; // No timelock for now
-      
       // Create loading toast
       const loadingToastId = toast.loading('Creating escrow contract...');
       
-      // Send transaction to create escrow
-      const tx = await factory.createEscrow(
-        arbiter,
-        beneficiary,
-        terms,
-        timelock,
-        { value: amountInWei }
-      );
+      // Create the escrow using our utility function
+      const tx = await createEscrow(provider, beneficiary, arbiter, terms, amount);
       
       // Wait for transaction to be confirmed
-      const receipt = await tx.wait();
+      await tx.wait();
       
       // Update toast
       toast.dismiss(loadingToastId);
@@ -143,7 +93,7 @@ export default function EthereumEscrow() {
       setTerms('');
       
       // Refresh escrows list
-      router.refresh();
+      await loadUserEscrows();
       
       // Navigate to dashboard
       setTimeout(() => router.push('/dashboard'), 1500);
@@ -155,34 +105,128 @@ export default function EthereumEscrow() {
     }
   };
 
-  // Format address to display
-  const formatAddress = (address: string) => {
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  const handleApproveEscrow = async (escrowAddress: string) => {
+    if (!provider || !address) return;
+    
+    setLoadingEscrow(escrowAddress);
+    
+    try {
+      const loadingToastId = toast.loading('Approving escrow...');
+      
+      // Approve the escrow using our utility function
+      const tx = await approveEscrow(provider, escrowAddress);
+      await tx.wait();
+      
+      toast.dismiss(loadingToastId);
+      toast.success('Escrow approved successfully!');
+      
+      // Refresh escrows
+      await loadUserEscrows();
+    } catch (error: any) {
+      console.error('Error approving escrow:', error);
+      toast.error(`Failed to approve escrow: ${error.message || error.reason || 'Unknown error'}`);
+    } finally {
+      setLoadingEscrow(null);
+    }
+  };
+  
+  const handleCancelEscrow = async (escrowAddress: string) => {
+    if (!provider || !address) return;
+    
+    setLoadingEscrow(escrowAddress);
+    
+    try {
+      const loadingToastId = toast.loading('Cancelling escrow...');
+      
+      // Cancel the escrow using our utility function
+      const tx = await cancelEscrow(provider, escrowAddress);
+      await tx.wait();
+      
+      toast.dismiss(loadingToastId);
+      toast.success('Escrow cancelled successfully!');
+      
+      // Refresh escrows
+      await loadUserEscrows();
+    } catch (error: any) {
+      console.error('Error cancelling escrow:', error);
+      toast.error(`Failed to cancel escrow: ${error.message || error.reason || 'Unknown error'}`);
+    } finally {
+      setLoadingEscrow(null);
+    }
+  };
+
+  const handleGetDetailedStatus = async (escrowAddress: string, index: number) => {
+    if (!provider || !address) return;
+    
+    try {
+      // If already showing details, just toggle off
+      if (activeEscrows[index].showDetails) {
+        const updatedEscrows = [...activeEscrows];
+        updatedEscrows[index] = {
+          ...updatedEscrows[index],
+          showDetails: false
+        };
+        setActiveEscrows(updatedEscrows);
+        return;
+      }
+      
+      // Get status using our utility function
+      const status = await getEscrowStatus(provider, escrowAddress);
+      
+      // Update escrow with status
+      const updatedEscrows = [...activeEscrows];
+      updatedEscrows[index] = {
+        ...updatedEscrows[index],
+        status,
+        showDetails: true
+      };
+      
+      setActiveEscrows(updatedEscrows);
+    } catch (error) {
+      console.error('Error getting escrow status:', error);
+    }
+  };
+
+  // Format address with adaptive size based on screen width
+  const formatAddressResponsive = (address: string) => {
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      // For mobile, show even shorter address
+      return `${address.substring(0, 4)}...${address.substring(address.length - 2)}`;
+    }
+    return formatAddress(address);
+  };
+
+  const handleApprove = async (escrowId: string) => {
+    // Implementation of handleApprove function
+  };
+
+  const handleCancel = async (escrowId: string) => {
+    // Implementation of handleCancel function
   };
 
   return (
-    <main className="flex flex-col items-center p-8 pt-16 grid-pattern">
+    <main className="flex flex-col items-center px-4 sm:px-6 md:px-8 pt-8 sm:pt-12 md:pt-16 grid-pattern">
       <div className="max-w-3xl w-full">
-        <h1 className="text-3xl font-bold mb-8 text-center text-neon-green">Ethereum Escrow</h1>
+        <h1 className="text-2xl sm:text-3xl md:text-3xl font-bold mb-4 sm:mb-6 md:mb-8 text-center text-neon-green">Ethereum Escrow</h1>
         
         {!isConnected ? (
-          <div className="bg-charcoal p-6 rounded-lg shadow-md mb-8 text-center border border-neon-green/30">
-            <p className="mb-4 text-gray-300">Connect your wallet to create an escrow contract</p>
+          <div className="bg-charcoal p-4 sm:p-6 rounded-lg shadow-md mb-4 sm:mb-6 md:mb-8 text-center border border-neon-green/30">
+            <p className="mb-3 sm:mb-4 text-gray-300">Connect your wallet to create an escrow contract</p>
             <button 
               onClick={handleConnect}
-              className="neon-button py-2 px-6 rounded-lg"
+              className="neon-button py-1.5 sm:py-2 px-4 sm:px-6 rounded-lg text-sm sm:text-base"
             >
               Connect Wallet
             </button>
           </div>
         ) : (
-          <div className="bg-charcoal p-6 rounded-lg shadow-md mb-8 border border-neon-green/30">
-            <h2 className="text-xl font-semibold mb-4 text-neon-green">Create New Escrow</h2>
+          <div className="bg-charcoal p-4 sm:p-6 rounded-lg shadow-md mb-4 sm:mb-6 md:mb-8 border border-neon-green/30">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-neon-green">Create New Escrow</h2>
             
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form className="space-y-3 sm:space-y-4" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor="beneficiary">
+                  <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-300" htmlFor="beneficiary">
                     Beneficiary Address
                   </label>
                   <input
@@ -190,13 +234,13 @@ export default function EthereumEscrow() {
                     id="beneficiary"
                     value={beneficiary}
                     onChange={(e) => setBeneficiary(e.target.value)}
-                    className="w-full p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
-                    placeholder="0x..."
+                    className="w-full p-1.5 sm:p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm text-xs sm:text-sm"
+                    placeholder="Ethereum address..."
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor="arbiter">
+                  <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-300" htmlFor="arbiter">
                     Arbiter Address
                   </label>
                   <input
@@ -204,14 +248,14 @@ export default function EthereumEscrow() {
                     id="arbiter"
                     value={arbiter}
                     onChange={(e) => setArbiter(e.target.value)}
-                    className="w-full p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
-                    placeholder="0x..."
+                    className="w-full p-1.5 sm:p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm text-xs sm:text-sm"
+                    placeholder="Ethereum address..."
                   />
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor="amount">
+                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-300" htmlFor="amount">
                   Escrow Amount (ETH)
                 </label>
                 <input
@@ -221,21 +265,21 @@ export default function EthereumEscrow() {
                   onChange={(e) => setAmount(e.target.value)}
                   step="0.01"
                   min="0"
-                  className="w-full p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
+                  className="w-full p-1.5 sm:p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm text-xs sm:text-sm"
                   placeholder="0.0"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor="terms">
+                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-300" htmlFor="terms">
                   Terms & Conditions
                 </label>
                 <textarea
                   id="terms"
                   value={terms}
                   onChange={(e) => setTerms(e.target.value)}
-                  rows={4}
-                  className="w-full p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
+                  rows={3}
+                  className="w-full p-1.5 sm:p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm text-xs sm:text-sm"
                   placeholder="Describe the terms of this escrow..."
                 />
               </div>
@@ -243,7 +287,7 @@ export default function EthereumEscrow() {
               <button 
                 type="submit"
                 disabled={isLoading}
-                className="w-full neon-button py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full neon-button py-2 sm:py-3 px-3 sm:px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
               >
                 {isLoading ? 'Creating...' : 'Create Escrow Contract'}
               </button>
@@ -251,69 +295,101 @@ export default function EthereumEscrow() {
           </div>
         )}
         
-        <div className="bg-charcoal p-6 rounded-lg shadow-md border border-neon-green/30">
-          <h2 className="text-xl font-semibold mb-4 text-neon-green">Your Active Escrows</h2>
+        <div className="bg-charcoal p-4 sm:p-6 rounded-lg shadow-md border border-neon-green/30">
+          <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-neon-green">Your Active Escrows</h2>
           
           {!isConnected ? (
-            <div className="text-center text-gray-400 py-8">
-              Connect your wallet to view your escrow contracts
-            </div>
+            <p className="text-center text-sm sm:text-base text-gray-400">Connect your wallet to view your active escrows</p>
           ) : activeEscrows.length === 0 ? (
-            <div className="text-center text-gray-400 py-8">
-              <p>No active escrows found</p>
-              <p className="text-sm mt-2 text-gray-500">Your wallet: <span className="text-neon-green">{address}</span></p>
-            </div>
+            <p className="text-center text-sm sm:text-base text-gray-400">You don't have any active escrows</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {activeEscrows.map((escrow, index) => (
-                <div key={index} className="border border-neon-green/20 rounded-lg p-4 hover:border-neon-green/40 transition-all">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center">
-                      <div className={`w-3 h-3 rounded-full mr-2 ${escrow.isApproved ? 'bg-matrix-green' : 'bg-neon-green'}`}></div>
-                      <h3 className="text-lg font-medium text-white">Escrow #{index + 1}</h3>
+                <div key={index} className="border border-neon-green/30 rounded-lg p-3 sm:p-4 bg-dark-gray hover:bg-charcoal/80 transition-colors">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
+                    <div className="flex flex-col">
+                      <h3 className="text-sm sm:text-base font-medium text-neon-green truncate">Escrow #{index + 1}</h3>
+                      <p className="text-xs sm:text-sm text-gray-400">{escrow.date}</p>
                     </div>
-                    <span className="text-sm bg-deep-black px-2 py-1 rounded text-neon-green">
-                      {escrow.isApproved ? 'Completed' : 'Active'}
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mb-3 text-sm">
-                    <div>
-                      <span className="text-gray-400">Contract:</span> 
-                      <span className="ml-2 text-neon-green">{formatAddress(escrow.address)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Amount:</span> 
-                      <span className="ml-2 text-white">{escrow.amount} ETH</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Depositor:</span> 
-                      <span className="ml-2 text-white">{formatAddress(escrow.depositor)} {escrow.isYours && '(You)'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Beneficiary:</span> 
-                      <span className="ml-2 text-white">{formatAddress(escrow.beneficiary)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Arbiter:</span> 
-                      <span className="ml-2 text-white">{formatAddress(escrow.arbiter)}</span>
+                    <div className="flex items-center space-x-2">
+                      <div className="text-xs sm:text-sm font-medium px-2 py-1 rounded-full bg-neon-green/10 text-neon-green border border-neon-green/30">
+                        {escrow.amount} ETH
+                      </div>
+                      <span
+                        className={classNames(
+                          "text-xs sm:text-sm px-2 py-1 rounded-full",
+                          escrow.status === "active" ? "bg-green-500/10 text-green-500 border border-green-500/30" :
+                          escrow.status === "completed" ? "bg-blue-500/10 text-blue-500 border border-blue-500/30" :
+                          "bg-red-500/10 text-red-500 border border-red-500/30"
+                        )}
+                      >
+                        {escrow.status.charAt(0).toUpperCase() + escrow.status.slice(1)}
+                      </span>
                     </div>
                   </div>
                   
-                  <div className="flex space-x-2 text-xs">
-                    <button 
-                      onClick={() => window.open(`https://sepolia.etherscan.io/address/${escrow.address}`, '_blank')}
-                      className="bg-deep-black border border-neon-green/30 text-neon-green px-3 py-1 rounded hover:bg-neon-green/10"
-                    >
-                      View on Etherscan
-                    </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4 mb-2 text-xs sm:text-sm">
+                    <div>
+                      <p className="text-gray-400">Beneficiary</p>
+                      <p className="truncate text-white/80">{escrow.beneficiary}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Arbiter</p>
+                      <p className="truncate text-white/80">{escrow.arbiter}</p>
+                    </div>
                   </div>
+                  
+                  <div className="text-xs sm:text-sm mb-3">
+                    <p className="text-gray-400">Terms</p>
+                    <p className="text-white/80 line-clamp-2">{escrow.terms}</p>
+                  </div>
+                  
+                  {escrow.status === "active" && (
+                    <div className="flex flex-col xs:flex-row gap-2">
+                      <button 
+                        onClick={() => handleApprove(escrow.id)}
+                        disabled={isLoading}
+                        className="neon-button-sm py-1.5 px-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm flex-1"
+                      >
+                        Approve & Release
+                      </button>
+                      <button 
+                        onClick={() => handleCancel(escrow.id)}
+                        disabled={isLoading}
+                        className="neon-button-alt-sm py-1.5 px-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm flex-1"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
+      
+      {/* Notification Toast */}
+      {notification && (
+        <div className={classNames(
+          "fixed bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-3 rounded-lg shadow-lg text-sm sm:text-base transition-all duration-300 max-w-md w-full",
+          notification.type === "success" ? "bg-green-500/90 text-white" : "bg-red-500/90 text-white"
+        )}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              {notification.type === "success" ? (
+                <CheckCircleIcon className="h-5 w-5" />
+              ) : (
+                <ExclamationCircleIcon className="h-5 w-5" />
+              )}
+              <span>{notification.message}</span>
+            </div>
+            <button onClick={() => setNotification(null)} className="text-white hover:text-gray-200">
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 } 

@@ -84,28 +84,28 @@ export default function SolanaEscrow() {
   };
 
   return (
-    <main className="flex flex-col items-center p-8 pt-16 grid-pattern">
+    <main className="flex flex-col items-center px-4 sm:px-6 md:px-8 pt-8 sm:pt-12 md:pt-16 grid-pattern">
       <div className="max-w-3xl w-full">
-        <h1 className="text-3xl font-bold mb-8 text-center text-neon-green">Solana Escrow</h1>
+        <h1 className="text-2xl sm:text-3xl md:text-3xl font-bold mb-4 sm:mb-6 md:mb-8 text-center text-neon-green">Solana Escrow</h1>
         
         {!isConnected ? (
-          <div className="bg-charcoal p-6 rounded-lg shadow-md mb-8 text-center border border-neon-green/30">
-            <p className="mb-4 text-gray-300">Connect your wallet to create an escrow program</p>
+          <div className="bg-charcoal p-4 sm:p-6 rounded-lg shadow-md mb-4 sm:mb-6 md:mb-8 text-center border border-neon-green/30">
+            <p className="mb-3 sm:mb-4 text-gray-300">Connect your wallet to create an escrow program</p>
             <button 
               onClick={handleConnect}
-              className="neon-button py-2 px-6 rounded-lg"
+              className="neon-button py-1.5 sm:py-2 px-4 sm:px-6 rounded-lg text-sm sm:text-base"
             >
               Connect Wallet
             </button>
           </div>
         ) : (
-          <div className="bg-charcoal p-6 rounded-lg shadow-md mb-8 border border-neon-green/30">
-            <h2 className="text-xl font-semibold mb-4 text-neon-green">Create New Escrow</h2>
+          <div className="bg-charcoal p-4 sm:p-6 rounded-lg shadow-md mb-4 sm:mb-6 md:mb-8 border border-neon-green/30">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-neon-green">Create New Escrow</h2>
             
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form className="space-y-3 sm:space-y-4" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor="beneficiary">
+                  <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-300" htmlFor="beneficiary">
                     Beneficiary Address
                   </label>
                   <input
@@ -113,13 +113,13 @@ export default function SolanaEscrow() {
                     id="beneficiary"
                     value={beneficiary}
                     onChange={(e) => setBeneficiary(e.target.value)}
-                    className="w-full p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
+                    className="w-full p-1.5 sm:p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
                     placeholder="Solana address..."
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor="arbiter">
+                  <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-300" htmlFor="arbiter">
                     Arbiter Address
                   </label>
                   <input
@@ -127,15 +127,15 @@ export default function SolanaEscrow() {
                     id="arbiter"
                     value={arbiter}
                     onChange={(e) => setArbiter(e.target.value)}
-                    className="w-full p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
+                    className="w-full p-1.5 sm:p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
                     placeholder="Solana address..."
                   />
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor="amount">
+                  <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-300" htmlFor="amount">
                     Escrow Amount (SOL)
                   </label>
                   <input
@@ -145,13 +145,13 @@ export default function SolanaEscrow() {
                     onChange={(e) => setAmount(e.target.value)}
                     step="0.01"
                     min="0"
-                    className="w-full p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
+                    className="w-full p-1.5 sm:p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
                     placeholder="0.0"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor="token">
+                  <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-300" htmlFor="token">
                     Token (optional)
                   </label>
                   <input
@@ -159,22 +159,22 @@ export default function SolanaEscrow() {
                     id="token"
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
-                    className="w-full p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
+                    className="w-full p-1.5 sm:p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
                     placeholder="Token address (leave blank for SOL)"
                   />
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300" htmlFor="terms">
+                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-300" htmlFor="terms">
                   Terms & Conditions
                 </label>
                 <textarea
                   id="terms"
                   value={terms}
                   onChange={(e) => setTerms(e.target.value)}
-                  rows={4}
-                  className="w-full p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
+                  rows={3}
+                  className="w-full p-1.5 sm:p-2 bg-dark-gray border border-neon-green/30 focus:border-neon-green/70 rounded-md text-white focus:ring-0 focus:outline-none focus:shadow-neon-green-sm"
                   placeholder="Describe the terms of this escrow..."
                 />
               </div>
@@ -182,7 +182,7 @@ export default function SolanaEscrow() {
               <button 
                 type="submit"
                 disabled={isLoading}
-                className="w-full neon-button py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full neon-button py-2 sm:py-3 px-3 sm:px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
               >
                 {isLoading ? 'Creating...' : 'Create Escrow Program'}
               </button>
@@ -190,17 +190,17 @@ export default function SolanaEscrow() {
           </div>
         )}
         
-        <div className="bg-charcoal p-6 rounded-lg shadow-md border border-neon-green/30">
-          <h2 className="text-xl font-semibold mb-4 text-neon-green">Your Active Escrows</h2>
+        <div className="bg-charcoal p-4 sm:p-6 rounded-lg shadow-md border border-neon-green/30">
+          <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-neon-green">Your Active Escrows</h2>
           
           {!isConnected ? (
-            <div className="text-center text-gray-400 py-8">
+            <div className="text-center text-gray-400 py-6 sm:py-8">
               Connect your wallet to view your escrow programs
             </div>
           ) : (
-            <div className="text-center text-gray-400 py-8">
+            <div className="text-center text-gray-400 py-6 sm:py-8">
               <p>No active escrows found</p>
-              <p className="text-sm mt-2 text-gray-500">Your wallet: <span className="text-neon-green">{address}</span></p>
+              <p className="text-xs sm:text-sm mt-2 text-gray-500">Your wallet: <span className="text-neon-green break-all">{address}</span></p>
             </div>
           )}
         </div>
