@@ -17,6 +17,13 @@ import {
 import { classNames } from '../lib/classNames';
 import { CheckCircleIcon, ExclamationCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
+// Extended interface for UI display
+interface UIEscrowData extends EscrowData {
+  date?: string;                 // Optional date for UI
+  statusString?: string;         // String representation of status
+  id?: string;                   // ID used for UI operations
+}
+
 export default function EthereumEscrow() {
   const { isConnected, connectEthereum, address, provider } = useWallet();
   const router = useRouter();
@@ -26,13 +33,16 @@ export default function EthereumEscrow() {
   const [amount, setAmount] = useState('');
   const [terms, setTerms] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [activeEscrows, setActiveEscrows] = useState<EscrowData[]>([]);
+  const [activeEscrows, setActiveEscrows] = useState<UIEscrowData[]>([]);
   const [loadingEscrow, setLoadingEscrow] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: string; message: string } | null>(null);
 
   // Load user's escrows on connection or address change
   useEffect(() => {
-    loadUserEscrows();
+    if (isConnected && address && provider) {
+      loadUserEscrows();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, address, provider]);
 
   const loadUserEscrows = async () => {
@@ -40,7 +50,13 @@ export default function EthereumEscrow() {
     
     try {
       const escrows = await getEscrows(provider, address);
-      setActiveEscrows(escrows);
+      // Convert to UI format
+      const uiEscrows = escrows.map(escrow => ({
+        ...escrow,
+        id: escrow.address,
+        statusString: escrow.isApproved ? "completed" : escrow.isCancelled ? "cancelled" : "active"
+      }));
+      setActiveEscrows(uiEscrows);
     } catch (error) {
       console.error('Error loading escrows:', error);
       toast.error('Failed to load escrows');
@@ -301,7 +317,7 @@ export default function EthereumEscrow() {
           {!isConnected ? (
             <p className="text-center text-sm sm:text-base text-gray-400">Connect your wallet to view your active escrows</p>
           ) : activeEscrows.length === 0 ? (
-            <p className="text-center text-sm sm:text-base text-gray-400">You don't have any active escrows</p>
+            <p className="text-center text-sm sm:text-base text-gray-400">You don&apos;t have any active escrows</p>
           ) : (
             <div className="space-y-3 sm:space-y-4">
               {activeEscrows.map((escrow, index) => (
@@ -318,12 +334,12 @@ export default function EthereumEscrow() {
                       <span
                         className={classNames(
                           "text-xs sm:text-sm px-2 py-1 rounded-full",
-                          escrow.status === "active" ? "bg-green-500/10 text-green-500 border border-green-500/30" :
-                          escrow.status === "completed" ? "bg-blue-500/10 text-blue-500 border border-blue-500/30" :
+                          escrow.statusString === "active" ? "bg-green-500/10 text-green-500 border border-green-500/30" :
+                          escrow.statusString === "completed" ? "bg-blue-500/10 text-blue-500 border border-blue-500/30" :
                           "bg-red-500/10 text-red-500 border border-red-500/30"
                         )}
                       >
-                        {escrow.status.charAt(0).toUpperCase() + escrow.status.slice(1)}
+                        {escrow.statusString && escrow.statusString.charAt(0).toUpperCase() + escrow.statusString.slice(1)}
                       </span>
                     </div>
                   </div>
@@ -344,17 +360,17 @@ export default function EthereumEscrow() {
                     <p className="text-white/80 line-clamp-2">{escrow.terms}</p>
                   </div>
                   
-                  {escrow.status === "active" && (
+                  {escrow.statusString === "active" && (
                     <div className="flex flex-col xs:flex-row gap-2">
                       <button 
-                        onClick={() => handleApprove(escrow.id)}
+                        onClick={() => handleApprove(escrow.id || escrow.address)}
                         disabled={isLoading}
                         className="neon-button-sm py-1.5 px-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm flex-1"
                       >
-                        Approve & Release
+                        Approve &amp; Release
                       </button>
                       <button 
-                        onClick={() => handleCancel(escrow.id)}
+                        onClick={() => handleCancel(escrow.id || escrow.address)}
                         disabled={isLoading}
                         className="neon-button-alt-sm py-1.5 px-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm flex-1"
                       >
@@ -384,7 +400,11 @@ export default function EthereumEscrow() {
               )}
               <span>{notification.message}</span>
             </div>
-            <button onClick={() => setNotification(null)} className="text-white hover:text-gray-200">
+            <button 
+              onClick={() => setNotification(null)} 
+              className="text-white hover:text-gray-200"
+              aria-label="Close notification"
+            >
               <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
