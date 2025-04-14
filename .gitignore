@@ -1,2 +1,13 @@
 node_modules/
 .next/
+.env
+.env.local
+.env.production
+.env.development
+.cache
+artifacts/
+cache/
+typechain/
+deployments/
+.DS_Store
+*.log

@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate-solana-keypair": "node scripts/generate-solana-keypair.js",
+    "deploy-ethereum": "npx hardhat run scripts/deploy-ethereum.js --network sepolia",
+    "deploy-solana": "node scripts/deploy-solana.js",
+    "test": "npx hardhat test"
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",
@@ -22,11 +26,17 @@
     "tailwindcss": "^3.3.3"
   },
   "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-waffle": "^2.0.6",
     "@types/node": "^20.9.0",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
+    "chai": "^4.3.7",
+    "dotenv": "^16.3.1",
     "eslint": "^8.53.0",
     "eslint-config-next": "^14.0.3",
+    "ethereum-waffle": "^4.0.10",
+    "hardhat": "^2.17.1",
     "typescript": "^5.2.2"
   }
 }
