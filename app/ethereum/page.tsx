@@ -213,11 +213,13 @@ export default function EthereumEscrow() {
   };
 
   const handleApprove = async (escrowId: string) => {
-    // Implementation of handleApprove function
+    // Call the existing handleApproveEscrow function with the escrow ID
+    await handleApproveEscrow(escrowId);
   };
 
   const handleCancel = async (escrowId: string) => {
-    // Implementation of handleCancel function
+    // Call the existing handleCancelEscrow function with the escrow ID
+    await handleCancelEscrow(escrowId);
   };
 
   return (
