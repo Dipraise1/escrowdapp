@@ -34,7 +34,7 @@ A decentralized escrow service supporting both Ethereum and Solana blockchains w
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/crypto-escrow.git
+git clone https://github.com/Dipraise1/escrowdapp.git****
 cd crypto-escrow
 
 # Install dependencies
